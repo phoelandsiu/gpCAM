@@ -843,6 +843,64 @@ class GPOptimizer(GP):
         else:
             warnings.warn("No cost_update_function available. Cost update failed.")
 
+######################################################################################
+######################################################################################
+######################################################################################
+######################################################################################
+######################################################################################
+######################################################################################
+######################################################################################
+######################################################################################
+######################################################################################
+######################################################################################
+######################################################################################
+
+import torch 
+
+class VariationalInference:
+
+    def __init__(self, model_likelihood, prior, variational_family):
+        self.model_likelihood = model_likelihood
+        self.prior = prior
+        self.variational_family = variational_family
+        self.theta = torch.randn(2)
+
+    def elbo(self, x):
+        """ Sample latent variables from the variational distribution.
+        Then compute log-likelihood and KL divergence """
+        z, q_dist = self.variational(self.theta)
+
+        log_likelihood = self.gaussian_likelihood(x, z)
+        kl_divergence = q_dist.log_prob(z) - self.prior(z)
+        return torch.mean(log_likelihood - kl_divergence)
+
+    def variational(self, theta):
+        """ Return the distribution of the latent variables
+        where theta is a vector that represents the parameters of the chosen variational distribution"""
+        mu = theta[:0]
+        logvar = theta[:,1]
+        z = self.reparameterize(mu, logvar)
+        z, q_dist = torch.distributions.Normal(mu, torch.exp(logvar))
+        return z, q_dist
+    
+    def reparameterize(mu, logvar):
+        """ Reparameterize the lower bound to yield a lower bound estimator 
+        that can be obtimized using stochastic gradient methods"""
+        std = torch.exp(0.5 * logvar)
+        epsilon = np.random.randn_like(std)
+        return mu + epsilon * std
+
+    def train(self, data, theta, optimizer, num_epochs):
+        optimizer = torch.optim.Adam([self.theta], lr=0.01)
+
+        for epoch in range(num_epochs):
+            for x in data:
+                loss = -1 * self.elbo(data, theta)
+                optimizer.zero_grad()
+                loss.backward()
+                optimizer.step()
+
+
 
 ######################################################################################
 ######################################################################################
